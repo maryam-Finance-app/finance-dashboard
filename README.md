@@ -90,3 +90,36 @@ create policy "Manage own transactions" on transactions
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 ```
+
+## Pages Structure
+
+The app uses the Next.js App Router with [route groups](https://nextjs.org/docs/app/building-your-application/routing/route-groups). Folder names in parentheses organize the code but do not appear in the URL.
+
+```
+app/
+├── layout.tsx              # Root layout (includes the app metadata)
+├── (auth)/
+│   └── auth/               # /auth: login and signup
+└── (app)/
+    ├── layout.tsx          # Auth guard: redirects to /auth if not logged in
+    ├── goals/              # /goals
+    ├── profile/            # /profile
+    └── (dashboard)/
+        ├── page.tsx        # / (home page, contains transactions)
+        └── analytics/      # /analytics
+```
+
+### Routes
+
+| Route | Group | Access | Purpose |
+|---|---|---|---|
+| `/auth` | `(auth)` | Public | Log in or sign up with email and password |
+| `/` | `(app)/(dashboard)` | Logged in | Home page with transactions |
+| `/analytics` | `(app)/(dashboard)` | Logged in | Analytics of income, expenses and savings |
+| `/goals` | `(app)` | Logged in | Savings goals and their progress |
+| `/profile` | `(app)` | Logged in | User profile and password change |
+
+### Route protection
+
+- `(app)/layout.tsx` checks the session on the server. If the user is not logged in, it redirects to `/auth`. Every page inside `(app)` is protected by it.
+- `(auth)` holds the only public page, where users log in or sign up.
