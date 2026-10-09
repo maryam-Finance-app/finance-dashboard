@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/server';
 import LogoutButton from '@/components/LogoutButton';
+import React from 'react';
  
-export default async function Home() {
+export default async function AppLayout({children}: {children: React.ReactNode}) {
   const supabase = await createClient();
  
   // getUser() re-validates the session with Supabase (don't use getSession() for protection)
@@ -34,6 +35,7 @@ export default async function Home() {
           <LogoutButton />
         </div>
       </header>
+      {children}
     </div>
   );
 }
