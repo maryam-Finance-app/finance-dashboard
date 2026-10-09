@@ -15,17 +15,23 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [accountExists, setAccountExists] = useState(false);
   const [error, setError] = useState<string | null>(
     searchParams.get('error') === 'auth_callback_failed'
       ? 'The confirmation link is invalid or expired. Please try again.'
       : null
   );
  
+  const resetFeedback = () => {
+    setMessage(null);
+    setError(null);
+    setAccountExists(false);
+  };
+ 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
-    setError(null);
+    resetFeedback();
  
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -46,10 +52,9 @@ export default function AuthPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
-    setError(null);
+    resetFeedback();
  
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -66,13 +71,21 @@ export default function AuthPage() {
       return;
     }
  
+    // With email confirmation on, Supabase returns no error for an email that
+    // is already registered. Instead it returns a user with an empty
+    // `identities` array and sends no email.
+    if (data.user && data.user.identities?.length === 0) {
+      setAccountExists(true);
+      setError('You already have an account with this email.');
+      return;
+    }
+ 
     setMessage('Check your email to confirm your account before logging in.');
   };
  
   const switchMode = () => {
     setMode(mode === 'login' ? 'signup' : 'login');
-    setError(null);
-    setMessage(null);
+    resetFeedback();
   };
  
   return (
@@ -99,7 +112,10 @@ export default function AuthPage() {
           type="email"
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (accountExists) resetFeedback();
+          }}
           required
           className="border p-2 rounded"
         />
@@ -122,7 +138,24 @@ export default function AuthPage() {
       </form>
  
       {message && <p className="text-green-600 text-sm">{message}</p>}
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+ 
+      {error && (
+        <p className="text-red-600 text-sm">
+          {error}{' '}
+          {accountExists && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                resetFeedback();
+              }}
+              className="underline font-medium"
+            >
+              Log in instead
+            </button>
+          )}
+        </p>
+      )}
  
       <button onClick={switchMode} className="text-sm underline">
         {mode === 'login'
