@@ -1,41 +1,48 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/server';
-import LogoutButton from '@/components/LogoutButton';
-import React from 'react';
- 
-export default async function AppLayout({children}: {children: React.ReactNode}) {
+import { redirect } from "next/navigation";
+import AppSidebar from "@/components/layout/SideBar";
+import QueryProvider from "@/components/providers/QueryProviders";
+import { createClient } from "@/lib/server";
+import type { Profile } from "@/hooks/userProfile";
+
+export default async function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const supabase = await createClient();
- 
-  // getUser() re-validates the session with Supabase (don't use getSession() for protection)
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
- 
+
   if (!user) {
-    redirect('/auth');
+    redirect("/auth");
   }
- 
-  // RLS only lets the user read their own profile
+
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('username')
-    .eq('id', user.id)
+    .from("profiles")
+    .select("id, username, image")
+    .eq("id", user.id)
     .single();
+
  
-  const username = profile?.username ?? user.email;
- 
+  const initialProfile: Profile = profile ?? {
+    id: user.id,
+    username: user.email?.split("@")[0] ?? null,
+    image: null,
+  };
+
   return (
-    <div className="p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Financial Dashboard</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm">
-            Hi, <span className="font-medium">{username}</span>
-          </span>
-          <LogoutButton />
+    <QueryProvider>
+      <div className="min-h-screen bg-slate-50">
+        <div className="flex min-h-screen flex-col lg:flex-row">
+          <AppSidebar initialProfile={initialProfile} />
+
+          <main className="flex-1 overflow-x-hidden p-2 md:p-8">
+            {children}
+          </main>
         </div>
-      </header>
-      {children}
-    </div>
+      </div>
+    </QueryProvider>
   );
 }
