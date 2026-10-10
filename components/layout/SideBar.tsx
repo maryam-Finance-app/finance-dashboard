@@ -119,7 +119,7 @@ function SidebarContent({
                 className="hover:text-slate-600"
                 onClick={onNavigate}
               >
-                {username}
+                {profile?.username}
               </Link>
             </p>
             <p className="truncate text-xs text-slate-400">Personal Finance</p>
