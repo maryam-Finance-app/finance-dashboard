@@ -1,15 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type {
-  Transaction,
-  TransactionType,
-} from "@/hooks/useTransactions";
-
-import DeleteTransaction from "./deleteModal";
+import { formatCurrency, formatDate } from "@/lib/format";
+import type { Transaction, TransactionType } from "@/hooks/useTransactions";
 import { Button } from "../ui/button";
 import {
   Table,
@@ -19,22 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-// "2026-10-13" -> "Oct 13, 2026"
-function formatDate(iso: string) {
-  const [year, month, day] = iso.split("-").map(Number);
-
-  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 const typeStyles: Record<
   TransactionType,
@@ -63,124 +42,102 @@ const typeStyles: Record<
 export default function TransactionsTable({
   transactions,
   onEdit,
+  onDelete,
 }: {
   transactions: Transaction[];
   onEdit: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
 }) {
-  const [transactionToDelete, setTransactionToDelete] =
-    useState<Transaction | null>(null);
-
   return (
-    <>
-      <Table>
-        <TableHeader>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Date</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Category / Goal</TableHead>
+          <TableHead className="hidden md:table-cell">Note</TableHead>
+          <TableHead className="text-right">Amount</TableHead>
+          <TableHead className="w-24">
+            <span className="sr-only">Actions</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+
+      <TableBody>
+        {transactions.length === 0 && (
           <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Category / Goal</TableHead>
-            <TableHead className="hidden md:table-cell">
-              Note
-            </TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-            <TableHead className="w-20">
-              <span className="sr-only">Actions</span>
-            </TableHead>
+            <TableCell
+              colSpan={6}
+              className="h-24 text-center text-muted-foreground"
+            >
+              No transactions found.
+            </TableCell>
           </TableRow>
-        </TableHeader>
+        )}
 
-        <TableBody>
-          {transactions.length === 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="h-24 text-center text-muted-foreground"
-              >
-                No transactions found.
+        {transactions.map((transaction) => {
+          const style = typeStyles[transaction.type];
+
+          return (
+            <TableRow key={transaction.id}>
+              <TableCell className="whitespace-nowrap">
+                {formatDate(transaction.date)}
               </TableCell>
-            </TableRow>
-          )}
 
-          {transactions.map((transaction) => {
-            const style = typeStyles[transaction.type];
-
-            return (
-              <TableRow key={transaction.id}>
-                <TableCell className="whitespace-nowrap">
-                  {formatDate(transaction.date)}
-                </TableCell>
-
-                <TableCell>
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-xs font-medium",
-                      style.badge
-                    )}
-                  >
-                    {style.label}
-                  </span>
-                </TableCell>
-
-                <TableCell>
-                  {transaction.category?.name ??
-                    transaction.goal?.title ??
-                    "-"}
-                </TableCell>
-
-                <TableCell className="hidden max-w-60 truncate text-muted-foreground md:table-cell">
-                  {transaction.note ?? "-"}
-                </TableCell>
-
-                <TableCell
+              <TableCell>
+                <span
                   className={cn(
-                    "whitespace-nowrap text-right font-medium tabular-nums",
-                    style.amount
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    style.badge
                   )}
                 >
-                  {style.sign}
-                  {currency.format(transaction.amount)}
-                </TableCell>
+                  {style.label}
+                </span>
+              </TableCell>
 
-                <TableCell className="whitespace-nowrap text-right">
-                  {/* Edit transaction */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Edit transaction"
-                    onClick={() => onEdit(transaction)}
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </Button>
+              {/* Savings have a goal instead of a category */}
+              <TableCell>
+                {transaction.category?.name ?? transaction.goal?.title ?? "-"}
+              </TableCell>
 
-                  {/* Open delete confirmation dialog */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Delete transaction"
-                    onClick={() =>
-                      setTransactionToDelete(transaction)
-                    }
-                  >
-                    <Trash2Icon className="h-4 w-4 text-red-600" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+              <TableCell className="hidden max-w-60 truncate text-muted-foreground md:table-cell">
+                {transaction.note ?? "-"}
+              </TableCell>
 
-      {/* Delete confirmation dialog for the selected transaction */}
-      {transactionToDelete && (
-        <DeleteTransaction
-          transactionId={transactionToDelete.id}
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) {
-              setTransactionToDelete(null);
-            }
-          }}
-        />
-      )}
-    </>
+              <TableCell
+                className={cn(
+                  "whitespace-nowrap text-right font-medium tabular-nums",
+                  style.amount
+                )}
+              >
+                {style.sign}
+                {formatCurrency(transaction.amount)}
+              </TableCell>
+
+              <TableCell className="whitespace-nowrap text-right">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Edit transaction"
+                  onClick={() => onEdit(transaction)}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove transaction"
+                  className="text-muted-foreground hover:text-red-600"
+                  onClick={() => onDelete(transaction)}
+                >
+                  <Trash2Icon className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

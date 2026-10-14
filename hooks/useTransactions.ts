@@ -47,7 +47,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
 
   return useQuery({
     queryKey: ["transactions", { type, from, to, page, pageSize }],
-    placeholderData: keepPreviousData, 
+    placeholderData: keepPreviousData, // no flicker while paging or filtering
     queryFn: async () => {
       const supabase = createClient();
 
@@ -164,6 +164,7 @@ export function useDeleteTransaction() {
     mutationFn: async (id: string) => {
       const supabase = createClient();
 
+      // RLS only lets you delete your own rows
       const { data, error } = await supabase
         .from("transactions")
         .delete()
@@ -173,7 +174,6 @@ export function useDeleteTransaction() {
 
       if (error) throw error;
       if (!data) throw new Error("Transaction not found.");
-
       return data;
     },
     onSuccess: () => refresh(),

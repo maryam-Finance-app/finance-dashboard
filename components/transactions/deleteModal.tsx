@@ -1,6 +1,10 @@
 "use client";
 
-import { useDeleteTransaction } from "@/hooks/useTransactions";
+import { formatCurrency, formatDate } from "@/lib/format";
+import {
+  useDeleteTransaction,
+  type Transaction,
+} from "@/hooks/useTransactions";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -11,57 +15,68 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 
-type DeleteTransactionProps = {
-  transactionId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
-
+/**
+ * Confirmation dialog for removing a transaction.
+ * It is open whenever `transaction` is set; clearing it (onClose) closes it.
+ */
 export default function DeleteTransaction({
-  transactionId,
-  open,
-  onOpenChange,
-}: DeleteTransactionProps) {
-  const deleteTransaction = useDeleteTransaction();
+  transaction,
+  onClose,
+}: {
+  transaction: Transaction | null;
+  onClose: () => void;
+}) {
+  const remove = useDeleteTransaction();
 
-  const handleDelete = () => {
-    deleteTransaction.mutate(transactionId, {
-      onSuccess: () => onOpenChange(false),
-    });
-  };
+  function close() {
+    remove.reset(); // clear any previous error
+    onClose();
+  }
+
+  function handleRemove() {
+    if (!transaction) return;
+    remove.mutate(transaction.id, { onSuccess: close });
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={!!transaction}
+      onOpenChange={(open) => {
+        // Don't let the dialog close while the request is running
+        if (!open && !remove.isPending) close();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Remove Transaction</DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove this transaction?
-            This action cannot be undone.
+            {transaction
+              ? `Are you sure you want to remove this ${transaction.type} of ${formatCurrency(transaction.amount)} from ${formatDate(transaction.date)}? This can't be undone.`
+              : ""}
           </DialogDescription>
         </DialogHeader>
 
-        {deleteTransaction.isError && (
-          <p className="text-sm text-red-600">
-            {deleteTransaction.error.message}
-          </p>
+        {remove.error && (
+          <p className="text-sm text-red-600">{remove.error.message}</p>
         )}
 
         <DialogFooter>
           <Button
+            type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={deleteTransaction.isPending}
+            onClick={close}
+            disabled={remove.isPending}
           >
-            No
+            Cancel
           </Button>
 
           <Button
+            type="button"
             variant="destructive"
-            onClick={handleDelete}
-            disabled={deleteTransaction.isPending}
+            onClick={handleRemove}
+            disabled={remove.isPending}
           >
-            {deleteTransaction.isPending ? "Deleting..." : "Yes, delete"}
+            {remove.isPending ? "Removing..." : "Remove"}
           </Button>
         </DialogFooter>
       </DialogContent>

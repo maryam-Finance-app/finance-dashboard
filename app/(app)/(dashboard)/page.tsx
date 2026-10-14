@@ -5,18 +5,18 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useTransactions, type Transaction } from "@/hooks/useTransactions";
+import DeleteTransaction from "@/components/transactions/deleteModal";
 import TransactionForm from "@/components/transactions/transaction-form";
 import TransactionsTable from "@/components/transactions/transaction-table";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
-// Same as the hook's default page size, so page 1 reuses the data the
-// layout already loaded instead of making a second request.
 const PAGE_SIZE = 20;
 
 export default function Home() {
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState<Transaction | null>(null);
 
   const { data, isLoading, isError, isPlaceholderData } = useTransactions({
     page,
@@ -29,7 +29,8 @@ export default function Home() {
   const from = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const to = Math.min((page + 1) * PAGE_SIZE, total);
 
-  // If the current page ends up past the last one, go back to the last page
+  // If the current page ends up past the last one (for example after
+  // removing the only row on it), go back to the last page
   useEffect(() => {
     if (data && page > 0 && data.transactions.length === 0) {
       setPage(totalPages - 1);
@@ -61,7 +62,11 @@ export default function Home() {
           isPlaceholderData && "opacity-60"
         )}
       >
-        <TransactionsTable transactions={transactions} onEdit={setEditing} />
+        <TransactionsTable
+          transactions={transactions}
+          onEdit={setEditing}
+          onDelete={setDeleting}
+        />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -112,6 +117,12 @@ export default function Home() {
           />
         )}
       </Dialog>
+
+      {/* Remove confirmation */}
+      <DeleteTransaction
+        transaction={deleting}
+        onClose={() => setDeleting(null)}
+      />
     </section>
   );
 }
