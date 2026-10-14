@@ -1,4 +1,5 @@
 'use client';
+import TotalAmountCard from "@/components/layout/totalAmounts";
 import TransactionForm from "@/components/transactions/transaction-form";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
@@ -31,7 +32,10 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
             {isLoading && <div className="flex justify-center items-center h-screen">Loading data...</div>}
             {isEmpty && <div className="flex justify-center items-center h-screen">No data available.</div>}
             {transactions && !isEmpty && <>
-            <div className="mt-5 mb-3">cards</div>
+            <div className="mt-5 mb-3 w-full flex">
+                <TotalAmountCard title="Remaining" amount={22}/>
+                <TotalAmountCard title="Income" amount={23}/>
+            </div>
                 {children}
             </>
             }
