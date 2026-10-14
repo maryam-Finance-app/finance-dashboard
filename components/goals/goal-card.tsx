@@ -1,10 +1,26 @@
-import { type GoalProgress } from "@/hooks/useGoals";
-import { cn } from '@/lib/utils';
-import { formatCurrency } from "@/lib/format";
+"use client";
 
-export function GoalCard({ goal }: { goal: GoalProgress }) {
+import { PencilIcon, ShoppingBagIcon, Trash2Icon } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
+import type { GoalProgress } from "@/hooks/useGoals";
+import { Button } from "../ui/button";
+
+export function GoalCard({
+  goal,
+  onEdit,
+  onDelete,
+  onBuy,
+}: {
+  goal: GoalProgress;
+  onEdit: (goal: GoalProgress) => void;
+  onDelete: (goal: GoalProgress) => void;
+  onBuy: (goal: GoalProgress) => void;
+}) {
   const percent = Math.min(100, Math.max(0, goal.progress_percent));
   const purchased = !!goal.purchased_at;
+  const canBuy = goal.is_completed && !purchased;
 
   const status = purchased
     ? "Purchased"
@@ -13,7 +29,7 @@ export function GoalCard({ goal }: { goal: GoalProgress }) {
       : `${Math.round(goal.progress_percent)}%`;
 
   return (
-    <div className="space-y-4 rounded-xl border bg-background p-5">
+    <div className="flex flex-col gap-4 rounded-xl border bg-background p-5">
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-semibold text-slate-900">{goal.title}</h2>
 
@@ -58,6 +74,41 @@ export function GoalCard({ goal }: { goal: GoalProgress }) {
         </span>{" "}
         saved of {formatCurrency(goal.target_amount)}
       </p>
+
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <div>
+          {canBuy && (
+            <Button size="sm" onClick={() => onBuy(goal)}>
+              <ShoppingBagIcon className="mr-2 h-4 w-4" />
+              Buy
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center">
+          {/* A bought goal is final: its expense was created from the target */}
+          {!purchased && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Edit goal"
+              onClick={() => onEdit(goal)}
+            >
+              <PencilIcon className="h-4 w-4" />
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Remove goal"
+            className="text-muted-foreground hover:text-red-600"
+            onClick={() => onDelete(goal)}
+          >
+            <Trash2Icon className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

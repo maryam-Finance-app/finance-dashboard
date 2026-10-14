@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/client";
 
 /* ------------------------------------------------------------------ */
@@ -65,5 +65,126 @@ export function useGoalProgress() {
       if (error) throw error;
       return data as GoalProgress[];
     },
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Write                                                               */
+/* ------------------------------------------------------------------ */
+
+export type GoalInput = {
+  title: string;
+  target_amount: number;
+};
+
+// Goals feed the savings form and the transactions list. Deleting a goal
+// removes its savings entries, and buying one adds an expense, so refresh
+// all of those too. Keys that don't have a query yet are simply ignored.
+function useRefreshAfterGoalChange() {
+  const queryClient = useQueryClient();
+
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["goals"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["summary"] }),
+    ]);
+}
+
+export function useCreateGoal() {
+  const refresh = useRefreshAfterGoalChange();
+
+  return useMutation({
+    mutationFn: async (input: GoalInput) => {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You are not logged in.");
+
+      // RLS requires user_id to be the logged-in user
+      const { data, error } = await supabase
+        .from("goals")
+        .insert({ user_id: user.id, ...input })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => refresh(),
+  });
+}
+
+export function useUpdateGoal() {
+  const refresh = useRefreshAfterGoalChange();
+
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: GoalInput }) => {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("goals")
+        .update(input)
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error("Goal not found.");
+      return data;
+    },
+    onSuccess: () => refresh(),
+  });
+}
+
+export function useDeleteGoal() {
+  const refresh = useRefreshAfterGoalChange();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+
+      // The goal's savings transactions are deleted with it (ON DELETE CASCADE)
+      const { data, error } = await supabase
+        .from("goals")
+        .delete()
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error("Goal not found.");
+      return data;
+    },
+    onSuccess: () => refresh(),
+  });
+}
+
+// "Buy" a completed goal. The buy_goal database function does it in one
+// step: it creates the expense transaction and sets goals.purchased_at.
+export function useBuyGoal() {
+  const refresh = useRefreshAfterGoalChange();
+
+  return useMutation({
+    mutationFn: async ({
+      goalId,
+      categoryId,
+    }: {
+      goalId: string;
+      categoryId: string | null; // null = the default "Others" expense category
+    }) => {
+      const supabase = createClient();
+
+      const { data, error } = await supabase.rpc("buy_goal", {
+        p_goal_id: goalId,
+        p_category_id: categoryId,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => refresh(),
   });
 }
