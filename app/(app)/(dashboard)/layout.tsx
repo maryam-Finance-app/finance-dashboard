@@ -5,7 +5,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useTransactions } from "@/hooks/useTransactions";
 import { PlusIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
-import React from "react";
+import React, { useState } from "react";
 
 export default function DashboardLayout({children}: {children: React.ReactNode}){
 
@@ -18,6 +18,8 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
 
     const {data: transactions, isLoading, isError} = useTransactions();
     const isEmpty = !!transactions && transactions.total === 0;
+
+    const [open, setOpen] = useState(false);
 
     return (
         <>
@@ -33,11 +35,14 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
                 {children}
             </>
             }
-            <Dialog>
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger render={<Button>
                     <PlusIcon />
                 </Button>} className={'rounded-full p-3 absolute bottom-0 right-0 mb-6 mr-8 w-fit h-fit cursor-pointer'}/>
-                <TransactionForm title="Add Transaction"/>
+                <TransactionForm 
+                title="Add Transaction"
+                onSuccess={() => setOpen(false)}
+                />
             </Dialog>
         </>
     )

@@ -47,7 +47,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
 
   return useQuery({
     queryKey: ["transactions", { type, from, to, page, pageSize }],
-    placeholderData: keepPreviousData, // no flicker while paging or filtering
+    placeholderData: keepPreviousData, 
     queryFn: async () => {
       const supabase = createClient();
 
@@ -151,6 +151,29 @@ export function useUpdateTransaction() {
 
       if (error) throw error;
       if (!data) throw new Error("Transaction not found.");
+      return data;
+    },
+    onSuccess: () => refresh(),
+  });
+}
+
+export function useDeleteTransaction() {
+  const refresh = useRefreshAfterChange();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error("Transaction not found.");
+
       return data;
     },
     onSuccess: () => refresh(),

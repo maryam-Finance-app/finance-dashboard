@@ -40,9 +40,7 @@ const selectClass = cn(
 
 type Props = {
   title: string;
-  /** Pass a transaction to edit it; leave empty to add a new one. */
   transaction?: Transaction;
-  /** Called after a successful save (use it to close the dialog). */
   onSuccess?: () => void;
 };
 
@@ -151,7 +149,6 @@ export default function TransactionForm({ title, transaction, onSuccess }: Props
             )}
           />
 
-          {/* Category (income / expense) or Save toward (savings) */}
           {isSavings ? (
             <Controller
               name="goalId"
