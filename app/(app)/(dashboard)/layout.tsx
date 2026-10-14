@@ -1,5 +1,9 @@
 'use client';
+import TransactionForm from "@/components/transactions/transaction-form";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useTransactions } from "@/hooks/useTransactions";
+import { PlusIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import React from "react";
 
@@ -29,6 +33,12 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
                 {children}
             </>
             }
+            <Dialog>
+                <DialogTrigger render={<Button>
+                    <PlusIcon />
+                </Button>} className={'rounded-full p-3 absolute bottom-0 right-0 mb-6 mr-8 w-fit h-fit cursor-pointer'}/>
+                <TransactionForm title="Add Transaction"/>
+            </Dialog>
         </>
     )
 }

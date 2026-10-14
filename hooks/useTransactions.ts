@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { createClient } from "@/lib/client";
 
 export type TransactionType = "income" | "expense" | "savings";
@@ -23,12 +28,26 @@ export type TransactionFilters = {
   pageSize?: number;
 };
 
+/** What gets written to the database (user_id is added by the create hook). */
+export type TransactionInput = {
+  type: TransactionType;
+  amount: number;
+  date: string;
+  note: string | null;
+  category_id: string | null; // set for income/expense, null for savings
+  goal_id: string | null; // set for savings, null for income/expense
+};
+
+/* ------------------------------------------------------------------ */
+/* Read                                                                */
+/* ------------------------------------------------------------------ */
+
 export function useTransactions(filters: TransactionFilters = {}) {
   const { type, from, to, page = 0, pageSize = 20 } = filters;
 
   return useQuery({
     queryKey: ["transactions", { type, from, to, page, pageSize }],
-    placeholderData: keepPreviousData,
+    placeholderData: keepPreviousData, // no flicker while paging or filtering
     queryFn: async () => {
       const supabase = createClient();
 
@@ -45,7 +64,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
         // No .eq("user_id", ...) needed: the RLS policy already limits
         // this table to the logged-in user's rows.
         .order("date", { ascending: false })
-        .order("id", { ascending: false }) 
+        .order("id", { ascending: false }) // stable order for rows on the same day
         .range(page * pageSize, page * pageSize + pageSize - 1);
 
       if (type) query = query.eq("type", type);
@@ -60,5 +79,80 @@ export function useTransactions(filters: TransactionFilters = {}) {
         total: count ?? 0,
       };
     },
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Write                                                               */
+/* ------------------------------------------------------------------ */
+
+// A transaction change affects the list, the summary numbers and (for
+// savings) goal progress, so refresh all of them. Keys that don't have
+// a query yet are simply ignored.
+function useRefreshAfterChange() {
+  const queryClient = useQueryClient();
+
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["summary"] }),
+      queryClient.invalidateQueries({ queryKey: ["goals"] }),
+    ]);
+}
+
+export function useCreateTransaction() {
+  const refresh = useRefreshAfterChange();
+
+  return useMutation({
+    mutationFn: async (input: TransactionInput) => {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You are not logged in.");
+
+      // RLS requires user_id to be the logged-in user
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert({ user_id: user.id, ...input })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    // Returning the promise keeps the mutation "pending" until the list
+    // has refreshed, so the dialog closes on up-to-date data.
+    onSuccess: () => refresh(),
+  });
+}
+
+export function useUpdateTransaction() {
+  const refresh = useRefreshAfterChange();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: TransactionInput;
+    }) => {
+      const supabase = createClient();
+
+      // RLS only lets you update your own rows
+      const { data, error } = await supabase
+        .from("transactions")
+        .update(input)
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error("Transaction not found.");
+      return data;
+    },
+    onSuccess: () => refresh(),
   });
 }
