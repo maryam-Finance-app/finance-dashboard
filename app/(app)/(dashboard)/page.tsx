@@ -1,41 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { useTransactions, type Transaction } from "@/hooks/useTransactions";
+import {
+  TRANSACTIONS_PAGE_SIZE,
+  useTransactions,
+  type Transaction,
+} from "@/hooks/useTransactions";
 import DeleteTransaction from "@/components/transactions/deleteModal";
 import TransactionForm from "@/components/transactions/transaction-form";
+import TransactionsPagination from "@/components/transactions/transaction-pagination";
 import TransactionsTable from "@/components/transactions/transaction-table";
-import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
-const PAGE_SIZE = 20;
+function TransactionsList() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-export default function Home() {
-  const [page, setPage] = useState(0);
+  // The current page lives in the URL (?page=2), so a refresh or the
+  // browser's back/forward buttons keep you on the right page. 1-based.
+  const requested = Number.parseInt(searchParams.get("page") ?? "", 10);
+  const page = Number.isInteger(requested) && requested > 0 ? requested : 1;
+
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
 
   const { data, isLoading, isError, isPlaceholderData } = useTransactions({
-    page,
-    pageSize: PAGE_SIZE,
+    page: page - 1, // the hook is 0-based
+    pageSize: TRANSACTIONS_PAGE_SIZE,
   });
 
   const transactions = data?.transactions ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const from = total === 0 ? 0 : page * PAGE_SIZE + 1;
-  const to = Math.min((page + 1) * PAGE_SIZE, total);
+  const totalPages = Math.max(1, Math.ceil(total / TRANSACTIONS_PAGE_SIZE));
 
-  // If the current page ends up past the last one (for example after
-  // removing the only row on it), go back to the last page
+  // Updates ?page= without a server round trip (Next.js keeps
+  // useSearchParams in sync with the native history methods)
+  const goToPage = useCallback(
+    (next: number, replace = false) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next <= 1) params.delete("page");
+      else params.set("page", String(next));
+
+      const query = params.toString();
+      const url = query ? `${pathname}?${query}` : pathname;
+
+      if (replace) window.history.replaceState(null, "", url);
+      else window.history.pushState(null, "", url);
+    },
+    [pathname, searchParams]
+  );
+
+  // A page past the end (typed into the URL, or the only row on the last
+  // page was removed) sends you to the last page instead
   useEffect(() => {
-    if (data && page > 0 && data.transactions.length === 0) {
-      setPage(totalPages - 1);
+    if (data && !isPlaceholderData && page > totalPages) {
+      goToPage(totalPages, true);
     }
-  }, [data, page, totalPages]);
+  }, [data, isPlaceholderData, page, totalPages, goToPage]);
 
   if (isLoading) {
     return (
@@ -69,37 +93,14 @@ export default function Home() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {from}-{to} of {total}
-        </p>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((current) => current - 1)}
-            disabled={page === 0 || isPlaceholderData}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-
-          <span className="text-sm text-muted-foreground">
-            Page {page + 1} of {totalPages}
-          </span>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((current) => current + 1)}
-            disabled={page >= totalPages - 1 || isPlaceholderData}
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <TransactionsPagination
+        page={Math.min(page, totalPages)}
+        totalPages={totalPages}
+        total={total}
+        pageSize={TRANSACTIONS_PAGE_SIZE}
+        disabled={isPlaceholderData}
+        onPageChange={(next) => goToPage(next)}
+      />
 
       {/* Edit dialog: the same form as "Add", filled with the row's data */}
       <Dialog
@@ -124,5 +125,14 @@ export default function Home() {
         onClose={() => setDeleting(null)}
       />
     </section>
+  );
+}
+
+// useSearchParams() must be inside Suspense, or `next build` fails.
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <TransactionsList />
+    </Suspense>
   );
 }

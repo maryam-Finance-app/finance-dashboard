@@ -38,12 +38,11 @@ export type TransactionInput = {
   goal_id: string | null; // set for savings, null for income/expense
 };
 
-/* ------------------------------------------------------------------ */
-/* Read                                                                */
-/* ------------------------------------------------------------------ */
+
+export const TRANSACTIONS_PAGE_SIZE = 8;
 
 export function useTransactions(filters: TransactionFilters = {}) {
-  const { type, from, to, page = 0, pageSize = 20 } = filters;
+  const { type, from, to, page = 0, pageSize = TRANSACTIONS_PAGE_SIZE } = filters;
 
   return useQuery({
     queryKey: ["transactions", { type, from, to, page, pageSize }],
@@ -72,7 +71,29 @@ export function useTransactions(filters: TransactionFilters = {}) {
       if (to) query = query.lte("date", to);
 
       const { data, error, count } = await query;
-      if (error) throw error;
+
+      if (error) {
+        // PostgREST answers "range not satisfiable" (PGRST103) when the page is
+        // past the last row, for example after removing the only row on the last
+        // page. Return an empty page with the real total, so the page can step
+        // back to the last page instead of showing an error.
+        if (error.code === "PGRST103") {
+          let countQuery = supabase
+            .from("transactions")
+            .select("id", { count: "exact", head: true });
+
+          if (type) countQuery = countQuery.eq("type", type);
+          if (from) countQuery = countQuery.gte("date", from);
+          if (to) countQuery = countQuery.lte("date", to);
+
+          const { count: total, error: countError } = await countQuery;
+          if (countError) throw countError;
+
+          return { transactions: [] as Transaction[], total: total ?? 0 };
+        }
+
+        throw error;
+      }
 
       return {
         transactions: (data ?? []) as unknown as Transaction[],
