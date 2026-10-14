@@ -6,7 +6,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useTransactions } from "@/hooks/useTransactions";
 import { PlusIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 export default function DashboardLayout({children}: {children: React.ReactNode}){
 
@@ -22,6 +22,26 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
 
     const [open, setOpen] = useState(false);
 
+    const IncomeAmount = useMemo(() => (
+        transactions?.transactions.filter(t => (
+        t.type === 'income'
+    )).reduce((sum, transaction) => sum + transaction.amount, 0) ?? 0
+    ), [transactions])
+
+    const ExpenseAmount = useMemo(() => (
+        transactions?.transactions.filter(t => (
+        t.type === 'expense'
+    )).reduce((sum, transaction) => sum + transaction.amount, 0) ?? 0
+    ), [transactions])
+
+    const SavingAmount = useMemo(() => (
+        transactions?.transactions.filter(t => (
+        t.type === 'savings'
+    )).reduce((sum, transaction) => sum + transaction.amount, 0) ?? 0
+    ), [transactions])
+
+    const Remaining = IncomeAmount - ExpenseAmount - SavingAmount;
+
     return (
         <>
             <div>
@@ -32,9 +52,11 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
             {isLoading && <div className="flex justify-center items-center h-screen">Loading data...</div>}
             {isEmpty && <div className="flex justify-center items-center h-screen">No data available.</div>}
             {transactions && !isEmpty && <>
-            <div className="mt-5 mb-3 w-full flex">
-                <TotalAmountCard title="Remaining" amount={22}/>
-                <TotalAmountCard title="Income" amount={23}/>
+            <div className="mt-5 mb-3 w-full flex gap-3">
+                <TotalAmountCard title="Remaining" amount={Remaining}/>
+                <TotalAmountCard title="Income" amount={IncomeAmount}/>
+                <TotalAmountCard title="Expense" amount={ExpenseAmount}/>
+                <TotalAmountCard title="Saving" amount={SavingAmount}/>
             </div>
                 {children}
             </>
