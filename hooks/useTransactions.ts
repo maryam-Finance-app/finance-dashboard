@@ -200,3 +200,31 @@ export function useDeleteTransaction() {
     onSuccess: () => refresh(),
   });
 }
+
+
+export function useTransactionByGoalId({ goal_id }: { goal_id: string }) {
+  return useQuery({
+    // Starts with "transactions", so edits and deletes refresh it automatically
+    queryKey: ["transactions", "goal", goal_id],
+    queryFn: async (): Promise<Transaction[]> => {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(
+          `
+          id, type, amount, date, note,
+          category:categories ( id, name ),
+          goal:goals ( id, title )
+        `
+        )
+        .eq("type", "savings")
+        .eq("goal_id", goal_id)
+        .order("date", { ascending: false })
+        .order("id", { ascending: false });
+
+      if (error) throw error;
+      return (data ?? []) as unknown as Transaction[];
+    },
+  });
+}

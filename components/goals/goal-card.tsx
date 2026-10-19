@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PencilIcon, ShoppingBagIcon, Trash2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -31,7 +32,16 @@ export function GoalCard({
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-background p-5">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="font-semibold text-slate-900">{goal.title}</h2>
+        <h2 className="font-semibold text-slate-900">
+          {/* Only goals that aren't purchased have a detail page */}
+          {purchased ? (
+            goal.title
+          ) : (
+            <Link href={`/goals/${goal.id}`} className="hover:underline">
+              {goal.title}
+            </Link>
+          )}
+        </h2>
 
         <span
           className={cn(
