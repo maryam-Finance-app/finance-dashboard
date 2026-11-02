@@ -64,7 +64,7 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger render={<Button>
                     <PlusIcon />
-                </Button>} className={'rounded-full p-3 absolute bottom-0 right-0 mb-6 mr-8 w-fit h-fit cursor-pointer'}/>
+                </Button>} className={'rounded-full p-3 fixed bottom-0 right-0 mb-6 mr-8 w-fit h-fit cursor-pointer'}/>
                 <TransactionForm 
                 title="Add Transaction"
                 onSuccess={() => setOpen(false)}
